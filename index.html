@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte CO₂ en direct</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { --fond:#f6f8f7; --texte:#1c2b2a; --bord:#cfd9d6; --accent:#1f6f6b; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--texte); display: flex; flex-direction: column; }
+  header { background: var(--fond); border-bottom: 1px solid var(--bord); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: baseline; }
+  header h1 { font-size: 1.1rem; margin: 0; }
+  #statut { font-size: .85rem; color: #55676a; }
+  #carte { flex: 1; }
+  .legende { background: #fff; padding: 10px 12px; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,.25); font-size: .8rem; line-height: 1.7; }
+  .legende b { display: block; margin-bottom: 2px; }
+  .pastille { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.35); }
+  .co2-label { background: #fff; border: 1px solid var(--bord); border-radius: 4px; padding: 1px 5px; font-weight: 600; font-size: .75rem; box-shadow: none; }
+  .masquer-etiquettes .co2-label { display: none; }
+  .popup-ligne { margin: 2px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Qualité de l'air : CO₂ en direct</h1>
+  <span id="statut">Chargement des mesures…</span>
+</header>
+<div id="carte"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ====== RÉGLAGES À MODIFIER ======
+const CSV_URL = "data.csv";        // fichier CSV (ou lien Google Sheets publié en CSV)
+const RAFRAICHIR_SECONDES = 30;    // fréquence de relecture
+const ZOOM_MIN_ETIQUETTES = 6;     // en dessous de ce zoom, les étiquettes "ppm" sont masquées
+const SEUILS = [                   // couleur selon le CO₂ (ppm)
+  { max: 600,      couleur: "#2e9e5b", nom: "Bon" },
+  { max: 800,      couleur: "#e6c229", nom: "Moyen" },
+  { max: 1000,     couleur: "#ef8a1f", nom: "Élevé" },
+  { max: Infinity, couleur: "#cf3a2f", nom: "Très élevé" }
+];
+// =================================
+
+const carte = L.map("carte", { worldCopyJump: true }).setView([46.6, 2.5], 6);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "© les contributeurs d'<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"
+}).addTo(carte);
+
+const calque = L.layerGroup().addTo(carte);
+let premierChargement = true;
+
+function couleurPour(ppm) {
+  return SEUILS.find(s => ppm < s.max).couleur;
+}
+function nomPour(ppm) {
+  return SEUILS.find(s => ppm < s.max).nom;
+}
+
+// Légende
+const legende = L.control({ position: "bottomright" });
+legende.onAdd = function () {
+  const d = L.DomUtil.create("div", "legende");
+  let prec = 0, html = "<b>CO₂ (ppm)</b>";
+  SEUILS.forEach(s => {
+    const txt = s.max === Infinity ? "> " + prec : (prec === 0 ? "< " + s.max : prec + " – " + s.max);
+    html += `<div><span class="pastille" style="background:${s.couleur}"></span>${txt} · ${s.nom}</div>`;
+    prec = s.max;
+  });
+  d.innerHTML = html;
+  return d;
+};
+legende.addTo(carte);
+
+// Lecture du CSV (virgule ou point-virgule, décimales avec point ou virgule)
+function lireCSV(texte) {
+  const lignes = texte.replace(/^\uFEFF/, "").trim().split(/\r?\n/).filter(l => l.trim() !== "");
+  if (lignes.length < 2) return [];
+  const sep = lignes[0].includes(";") ? ";" : ",";
+  const entetes = lignes[0].split(sep).map(h => h.trim().toLowerCase());
+  const idx = nom => entetes.indexOf(nom.toLowerCase());
+  const iId = idx("id"), iCo2 = idx("co2_ppm"), iLat = idx("latitude"),
+        iLon = idx("longitude"), iAlt = idx("altitude");
+  const nombre = v => parseFloat(String(v).trim().replace(",", "."));
+  const points = [];
+  lignes.slice(1).forEach(l => {
+    const c = l.split(sep);
+    const lat = nombre(c[iLat]), lon = nombre(c[iLon]), co2 = nombre(c[iCo2]);
+    if ([lat, lon, co2].some(isNaN) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return; // ligne ignorée
+    points.push({ id: c[iId], co2, lat, lon, alt: iAlt >= 0 ? c[iAlt] : "" });
+  });
+  return points;
+}
+
+function afficher(points) {
+  calque.clearLayers();
+  points.forEach(p => {
+    const m = L.circleMarker([p.lat, p.lon], {
+      radius: 9, color: "#1c2b2a", weight: 1.5,
+      fillColor: couleurPour(p.co2), fillOpacity: 0.9
+    });
+    m.bindTooltip(p.co2 + " ppm", { permanent: true, direction: "right", offset: [10, 0], className: "co2-label" });
+    m.bindPopup(
+      `<div class="popup-ligne"><b>Point ${p.id}</b></div>` +
+      `<div class="popup-ligne">${p.co2} ppm · ${nomPour(p.co2)}</div>` +
+      `<div class="popup-ligne">Altitude : ${p.alt} m</div>` +
+      `<div class="popup-ligne">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</div>`
+    );
+    m.addTo(calque);
+  });
+  if (premierChargement && points.length) {
+    carte.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lon])), { padding: [40, 40], maxZoom: 12 });
+    premierChargement = false;
+  }
+}
+
+async function charger() {
+  const statut = document.getElementById("statut");
+  try {
+    const rep = await fetch(CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
+    if (!rep.ok) throw new Error("HTTP " + rep.status);
+    const points = lireCSV(await rep.text());
+    afficher(points);
+    statut.textContent = points.length + " mesures · mise à jour à " + new Date().toLocaleTimeString("fr-FR");
+  } catch (e) {
+    statut.textContent = "Impossible de lire les données (" + e.message + "). Nouvelle tentative bientôt.";
+  }
+}
+
+// Étiquettes masquées quand on dézoome
+function majEtiquettes() {
+  document.getElementById("carte").classList.toggle("masquer-etiquettes", carte.getZoom() < ZOOM_MIN_ETIQUETTES);
+}
+carte.on("zoomend", majEtiquettes);
+majEtiquettes();
+
+charger();
+setInterval(charger, RAFRAICHIR_SECONDES * 1000);
+</script>
+</body>
+</html>
