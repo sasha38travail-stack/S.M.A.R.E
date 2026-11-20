@@ -82,14 +82,17 @@ function lireCSV(texte) {
   const entetes = lignes[0].split(sep).map(h => h.trim().toLowerCase());
   const idx = nom => entetes.indexOf(nom.toLowerCase());
   const iId = idx("id"), iCo2 = idx("co2_ppm"), iLat = idx("latitude"),
-        iLon = idx("longitude"), iAlt = idx("altitude");
+        iLon = idx("longitude"), iAlt = idx("altitude"),
+        iT = idx("temperature"), iH = idx("humidite"), iP = idx("pression");
   const nombre = v => parseFloat(String(v).trim().replace(",", "."));
   const points = [];
   lignes.slice(1).forEach(l => {
     const c = l.split(sep);
     const lat = nombre(c[iLat]), lon = nombre(c[iLon]), co2 = nombre(c[iCo2]);
     if ([lat, lon, co2].some(isNaN) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return; // ligne ignorée
-    points.push({ id: c[iId], co2, lat, lon, alt: iAlt >= 0 ? c[iAlt] : "" });
+    const env = i => { const v = i >= 0 ? nombre(c[i]) : NaN; return isNaN(v) ? null : v; };
+    points.push({ id: c[iId], co2, lat, lon, alt: iAlt >= 0 ? c[iAlt] : "",
+                  temp: env(iT), hum: env(iH), pres: env(iP) });
   });
   return points;
 }
@@ -106,6 +109,9 @@ function afficher(points) {
       `<div class="popup-ligne"><b>Point ${p.id}</b></div>` +
       `<div class="popup-ligne">${p.co2} ppm · ${nomPour(p.co2)}</div>` +
       `<div class="popup-ligne">Altitude : ${p.alt} m</div>` +
+      (p.temp !== null ? `<div class="popup-ligne">Température : ${p.temp.toFixed(1)} °C</div>` : "") +
+      (p.hum !== null ? `<div class="popup-ligne">Humidité : ${p.hum.toFixed(0)} %</div>` : "") +
+      (p.pres !== null ? `<div class="popup-ligne">Pression : ${p.pres.toFixed(0)} hPa</div>` : "") +
       `<div class="popup-ligne">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</div>`
     );
     m.addTo(calque);
