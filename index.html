@@ -4,146 +4,297 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Carte CO₂ en direct</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <style>
   :root { --fond:#f6f8f7; --texte:#1c2b2a; --bord:#cfd9d6; --accent:#1f6f6b; }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--texte); display: flex; flex-direction: column; }
-  header { background: var(--fond); border-bottom: 1px solid var(--bord); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: baseline; }
-  header h1 { font-size: 1.1rem; margin: 0; }
-  #statut { font-size: .85rem; color: #55676a; }
-  #carte { flex: 1; }
-  .legende { background: #fff; padding: 10px 12px; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,.25); font-size: .8rem; line-height: 1.7; }
+  header { background: var(--fond); border-bottom: 1px solid var(--bord); padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+  header h1 { font-size: 1.05rem; margin: 0; }
+  #statut { font-size: .82rem; color: #55676a; flex: 1; min-width: 180px; }
+  .groupe { display: inline-flex; border: 1px solid var(--bord); border-radius: 8px; overflow: hidden; background: #fff; }
+  .groupe button { border: 0; background: transparent; padding: 6px 11px; font: inherit; font-size: .85rem; cursor: pointer; color: var(--texte); }
+  .groupe button + button { border-left: 1px solid var(--bord); }
+  .groupe button.actif { background: var(--accent); color: #fff; }
+  #zone { position: relative; flex: 1; }
+  #carte { position: absolute; inset: 0; }
+  .legende { position: absolute; left: 10px; bottom: 34px; z-index: 2; background: #fff; padding: 9px 12px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.3); font-size: .78rem; line-height: 1.65; max-width: 210px; }
   .legende b { display: block; margin-bottom: 2px; }
   .pastille { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.35); }
-  .co2-label { background: #fff; border: 1px solid var(--bord); border-radius: 4px; padding: 1px 5px; font-weight: 600; font-size: .75rem; box-shadow: none; }
-  .masquer-etiquettes .co2-label { display: none; }
+  .degrade { height: 11px; border-radius: 4px; border: 1px solid rgba(0,0,0,.25); margin: 4px 0 2px; }
+  .bornes { display: flex; justify-content: space-between; }
+  .note { color: #6b7b7e; margin-top: 3px; }
+  .etiquette { background: #fff; border: 1px solid var(--bord); border-radius: 4px; padding: 1px 5px; font-weight: 600; font-size: .74rem; pointer-events: none; white-space: nowrap; }
   .popup-ligne { margin: 2px 0; }
+  .maplibregl-popup-content { font-family: inherit; font-size: .85rem; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Qualité de l'air : CO₂ en direct</h1>
+  <h1>Qualité de l'air en direct</h1>
   <span id="statut">Chargement des mesures…</span>
+  <div class="groupe" id="variables"></div>
+  <div class="groupe"><button id="b2d" class="actif">2D</button><button id="b3d">3D</button></div>
 </header>
-<div id="carte"></div>
+<div id="zone">
+  <div id="carte"></div>
+  <div id="legende" class="legende"></div>
+</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
 // ====== RÉGLAGES À MODIFIER ======
-const CSV_URL = "data.csv";        // fichier CSV (ou lien Google Sheets publié en CSV)
+const CSV_URL = "data.csv";        // fichier de données (ou lien d'un CSV publié)
 const RAFRAICHIR_SECONDES = 30;    // fréquence de relecture
-const ZOOM_MIN_ETIQUETTES = 6;     // en dessous de ce zoom, les étiquettes "ppm" sont masquées
-const SEUILS = [                   // couleur selon le CO₂ (ppm)
-  { max: 600,      couleur: "#2e9e5b", nom: "Bon" },
-  { max: 800,      couleur: "#e6c229", nom: "Moyen" },
-  { max: 1000,     couleur: "#ef8a1f", nom: "Élevé" },
-  { max: Infinity, couleur: "#cf3a2f", nom: "Très élevé" }
-];
+const ZOOM_MIN_ETIQUETTES = 6;     // en dessous de ce zoom, les étiquettes sont masquées
+const MAX_ETIQUETTES = 150;        // nombre maximum d'étiquettes affichées à l'écran
+const VARIABLES = {                // couleurs de chaque grandeur mesurée
+  co2:  { nom: "CO₂", unite: "ppm", decimales: 0, min: 400, max: 1200, paliers: true,
+          echelle: [[0, "#2e9e5b"], [600, "#e6c229"], [800, "#ef8a1f"], [1000, "#cf3a2f"]] },
+  temp: { nom: "Température", unite: "°C", decimales: 1, min: -10, max: 35,
+          echelle: [[-10, "#2c7bb6"], [10, "#abd9e9"], [20, "#ffffbf"], [28, "#fdae61"], [35, "#d7191c"]] },
+  hum:  { nom: "Humidité", unite: "%", decimales: 0, min: 0, max: 100,
+          echelle: [[0, "#a6611a"], [40, "#dfc27d"], [60, "#c7eae5"], [80, "#5ab4ac"], [100, "#01665e"]] },
+  pres: { nom: "Pression", unite: "hPa", decimales: 0, min: 600, max: 1050,
+          echelle: [[600, "#440154"], [780, "#3b528b"], [900, "#21908d"], [980, "#5dc863"], [1050, "#fde725"]] }
+};
+const NIVEAUX_CO2 = ["Bon", "Moyen", "Élevé", "Très élevé"];
 // =================================
 
-const carte = L.map("carte", { worldCopyJump: true }).setView([46.6, 2.5], 6);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "© les contributeurs d'<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"
-}).addTo(carte);
-
-const calque = L.layerGroup().addTo(carte);
-let premierChargement = true;
-
-function couleurPour(ppm) {
-  return SEUILS.find(s => ppm < s.max).couleur;
+// ===== LOGIQUE (testée) =====
+function nombre(v) {
+  const x = parseFloat(String(v === undefined || v === null ? "" : v).trim().replace(",", "."));
+  return Number.isFinite(x) ? x : null;
 }
-function nomPour(ppm) {
-  return SEUILS.find(s => ppm < s.max).nom;
-}
+function dansLimites(x, mini, maxi) { return x !== null && x >= mini && x <= maxi ? x : null; }
 
-// Légende
-const legende = L.control({ position: "bottomright" });
-legende.onAdd = function () {
-  const d = L.DomUtil.create("div", "legende");
-  let prec = 0, html = "<b>CO₂ (ppm)</b>";
-  SEUILS.forEach(s => {
-    const txt = s.max === Infinity ? "> " + prec : (prec === 0 ? "< " + s.max : prec + " – " + s.max);
-    html += `<div><span class="pastille" style="background:${s.couleur}"></span>${txt} · ${s.nom}</div>`;
-    prec = s.max;
-  });
-  d.innerHTML = html;
-  return d;
-};
-legende.addTo(carte);
-
-// Lecture du CSV (virgule ou point-virgule, décimales avec point ou virgule)
 function lireCSV(texte) {
   const lignes = texte.replace(/^\uFEFF/, "").trim().split(/\r?\n/).filter(l => l.trim() !== "");
   if (lignes.length < 2) return [];
-  const sep = lignes[0].includes(";") ? ";" : ",";
+  const sep = (lignes[0].match(/;/g) || []).length > (lignes[0].match(/,/g) || []).length ? ";" : ",";
   const entetes = lignes[0].split(sep).map(h => h.trim().toLowerCase());
-  const idx = nom => entetes.indexOf(nom.toLowerCase());
-  const iId = idx("id"), iCo2 = idx("co2_ppm"), iLat = idx("latitude"),
-        iLon = idx("longitude"), iAlt = idx("altitude"),
-        iT = idx("temperature"), iH = idx("humidite"), iP = idx("pression");
-  const nombre = v => parseFloat(String(v).trim().replace(",", "."));
+  const idx = n => entetes.indexOf(n);
+  const iId = idx("id"), iCo2 = idx("co2_ppm"), iLat = idx("latitude"), iLon = idx("longitude"),
+        iAlt = idx("altitude"), iT = idx("temperature"), iH = idx("humidite"), iP = idx("pression");
   const points = [];
-  lignes.slice(1).forEach(l => {
+  lignes.slice(1).forEach((l, n) => {
     const c = l.split(sep);
     const lat = nombre(c[iLat]), lon = nombre(c[iLon]), co2 = nombre(c[iCo2]);
-    if ([lat, lon, co2].some(isNaN) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return; // ligne ignorée
-    const env = i => { const v = i >= 0 ? nombre(c[i]) : NaN; return isNaN(v) ? null : v; };
-    points.push({ id: c[iId], co2, lat, lon, alt: iAlt >= 0 ? c[iAlt] : "",
-                  temp: env(iT), hum: env(iH), pres: env(iP) });
+    if (lat === null || lon === null || co2 === null) return;
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180 || (lat === 0 && lon === 0)) return;   // ligne ignorée
+    points.push({
+      id: iId >= 0 && c[iId] ? c[iId].trim() : String(n + 1),
+      co2: co2, lat: lat, lon: lon,
+      alt: iAlt >= 0 ? nombre(c[iAlt]) : null,
+      temp: iT >= 0 ? dansLimites(nombre(c[iT]), -60, 80) : null,
+      hum: iH >= 0 ? dansLimites(nombre(c[iH]), 0, 100) : null,
+      pres: iP >= 0 ? dansLimites(nombre(c[iP]), 300, 1100) : null
+    });
   });
   return points;
 }
 
-function afficher(points) {
-  calque.clearLayers();
-  points.forEach(p => {
-    const m = L.circleMarker([p.lat, p.lon], {
-      radius: 9, color: "#1c2b2a", weight: 1.5,
-      fillColor: couleurPour(p.co2), fillOpacity: 0.9
-    });
-    m.bindTooltip(p.co2 + " ppm", { permanent: true, direction: "right", offset: [10, 0], className: "co2-label" });
-    m.bindPopup(
-      `<div class="popup-ligne"><b>Point ${p.id}</b></div>` +
-      `<div class="popup-ligne">${p.co2} ppm · ${nomPour(p.co2)}</div>` +
-      `<div class="popup-ligne">Altitude : ${p.alt} m</div>` +
-      (p.temp !== null ? `<div class="popup-ligne">Température : ${p.temp.toFixed(1)} °C</div>` : "") +
-      (p.hum !== null ? `<div class="popup-ligne">Humidité : ${p.hum.toFixed(0)} %</div>` : "") +
-      (p.pres !== null ? `<div class="popup-ligne">Pression : ${p.pres.toFixed(0)} hPa</div>` : "") +
-      `<div class="popup-ligne">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</div>`
-    );
-    m.addTo(calque);
-  });
-  if (premierChargement && points.length) {
-    carte.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lon])), { padding: [40, 40], maxZoom: 12 });
-    premierChargement = false;
+function hexVersRgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function melange(a, b, t) {
+  const A = hexVersRgb(a), B = hexVersRgb(b);
+  return "rgb(" + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",") + ")";
+}
+function couleur(def, v) {
+  if (v === null || v === undefined) return "#9aa5a4";
+  const e = def.echelle;
+  if (def.paliers) {
+    let c = e[0][1];
+    for (const s of e) if (v >= s[0]) c = s[1];
+    return c;
+  }
+  if (v <= e[0][0]) return e[0][1];
+  if (v >= e[e.length - 1][0]) return e[e.length - 1][1];
+  for (let i = 1; i < e.length; i++) {
+    if (v <= e[i][0]) return melange(e[i - 1][1], e[i][1], (v - e[i - 1][0]) / (e[i][0] - e[i - 1][0]));
+  }
+  return e[e.length - 1][1];
+}
+function hauteur01(def, v) {
+  if (v === null || v === undefined) return 0.04;
+  return Math.min(1, Math.max(0.04, (v - def.min) / (def.max - def.min)));
+}
+function niveauCO2(v) { return NIVEAUX_CO2[v < 600 ? 0 : v < 800 ? 1 : v < 1000 ? 2 : 3]; }
+
+// Octogone (colonne) de rayon r mètres autour d'un point
+function octogone(lon, lat, r, h, coul, id) {
+  const dLat = r / 111320, dLon = r / (111320 * Math.max(Math.cos(lat * Math.PI / 180), 0.01));
+  const anneau = [];
+  for (let k = 0; k < 8; k++) {
+    const a = Math.PI / 4 * k + Math.PI / 8;
+    anneau.push([lon + dLon * Math.cos(a), lat + dLat * Math.sin(a)]);
+  }
+  anneau.push(anneau[0]);
+  return { type: "Feature", geometry: { type: "Polygon", coordinates: [anneau] },
+           properties: { id: id, couleur: coul, h: h } };
+}
+// ===== FIN LOGIQUE =====
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+let variable = "co2", mode3d = false, points = [], parId = {}, etiquettes = [], premierChargement = true;
+const legende = document.getElementById("legende");
+const statut = document.getElementById("statut");
+
+const map = new maplibregl.Map({
+  container: "carte",
+  center: [2.5, 46.6], zoom: 5, maxPitch: 75,
+  style: {
+    version: 8,
+    sources: { osm: { type: "raster", tileSize: 256, maxzoom: 19,
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      attribution: "© contributeurs <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>" } },
+    layers: [{ id: "osm", type: "raster", source: "osm" }]
+  }
+});
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-left");
+map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+
+const vide = { type: "FeatureCollection", features: [] };
+map.on("load", () => {
+  map.addSource("mesures", { type: "geojson", data: vide });
+  map.addSource("colonnes", { type: "geojson", data: vide });
+  map.addLayer({ id: "colonnes", type: "fill-extrusion", source: "colonnes", layout: { visibility: "none" },
+    paint: { "fill-extrusion-color": ["get", "couleur"], "fill-extrusion-height": ["get", "h"],
+             "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.9 } });
+  map.addLayer({ id: "cercles", type: "circle", source: "mesures",
+    paint: { "circle-radius": 8, "circle-color": ["get", "couleur"], "circle-opacity": 0.92,
+             "circle-stroke-width": 1.5, "circle-stroke-color": "#1c2b2a" } });
+  for (const couche of ["cercles", "colonnes"]) {
+    map.on("click", couche, e => ouvrirPopup(e.features[0].properties.id));
+    map.on("mouseenter", couche, () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", couche, () => { map.getCanvas().style.cursor = ""; });
+  }
+  map.on("moveend", majEtiquettes);
+  map.on("zoomend", maj3d);
+  charger();
+  setInterval(charger, RAFRAICHIR_SECONDES * 1000);
+});
+
+function ouvrirPopup(id) {
+  const p = parId[String(id)];
+  if (!p) return;
+  let h = `<div class="popup-ligne"><b>Point ${esc(p.id)}</b></div>` +
+          `<div class="popup-ligne">CO₂ : ${p.co2} ppm · ${niveauCO2(p.co2)}</div>`;
+  if (p.alt !== null) h += `<div class="popup-ligne">Altitude : ${p.alt} m</div>`;
+  if (p.temp !== null) h += `<div class="popup-ligne">Température : ${p.temp.toFixed(1)} °C</div>`;
+  if (p.hum !== null) h += `<div class="popup-ligne">Humidité : ${p.hum.toFixed(0)} %</div>`;
+  if (p.pres !== null) h += `<div class="popup-ligne">Pression : ${p.pres.toFixed(0)} hPa</div>`;
+  h += `<div class="popup-ligne">${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}</div>`;
+  new maplibregl.Popup({ maxWidth: "260px", offset: 12 }).setLngLat([p.lon, p.lat]).setHTML(h).addTo(map);
+}
+
+function afficher() {
+  const def = VARIABLES[variable];
+  map.getSource("mesures").setData({ type: "FeatureCollection", features: points.map(p => ({
+    type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+    properties: { id: p.id, couleur: couleur(def, p[variable]) } })) });
+  maj3d();
+  majEtiquettes();
+  majLegende();
+}
+
+// Colonnes 3D : taille constante à l'écran quel que soit le zoom
+function maj3d() {
+  if (!mode3d || !map.getSource("colonnes")) return;
+  const def = VARIABLES[variable], z = map.getZoom();
+  map.getSource("colonnes").setData({ type: "FeatureCollection", features: points.map(p => {
+    const mpp = 156543.03392 * Math.cos(p.lat * Math.PI / 180) / Math.pow(2, z);   // mètres par pixel
+    const v = p[variable];
+    return octogone(p.lon, p.lat, Math.max(mpp * 9, 2), hauteur01(def, v) * mpp * 140, couleur(def, v), p.id);
+  }) });
+}
+
+function majEtiquettes() {
+  etiquettes.forEach(m => m.remove());
+  etiquettes = [];
+  if (map.getZoom() < ZOOM_MIN_ETIQUETTES) return;
+  const def = VARIABLES[variable], b = map.getBounds();
+  let n = 0;
+  for (const p of points) {
+    if (!b.contains([p.lon, p.lat])) continue;
+    if (++n > MAX_ETIQUETTES) break;
+    const v = p[variable], el = document.createElement("div");
+    el.className = "etiquette";
+    el.textContent = v === null ? "–" : v.toFixed(def.decimales) + " " + def.unite;
+    etiquettes.push(new maplibregl.Marker({ element: el, anchor: "left", offset: [12, 0] }).setLngLat([p.lon, p.lat]).addTo(map));
   }
 }
 
+function majLegende() {
+  const def = VARIABLES[variable], e = def.echelle;
+  let h = `<b>${def.nom} (${def.unite})</b>`;
+  if (def.paliers) {
+    e.forEach((s, i) => {
+      const suiv = e[i + 1] ? e[i + 1][0] : null;
+      const txt = i === 0 ? "< " + suiv : (suiv === null ? "> " + s[0] : s[0] + " – " + suiv);
+      h += `<div><span class="pastille" style="background:${s[1]}"></span>${txt} · ${NIVEAUX_CO2[i]}</div>`;
+    });
+  } else {
+    const a = e[0][0], z = e[e.length - 1][0];
+    const arrets = e.map(s => s[1] + " " + ((s[0] - a) / (z - a) * 100).toFixed(1) + "%").join(", ");
+    h += `<div class="degrade" style="background:linear-gradient(to right, ${arrets})"></div>` +
+         `<div class="bornes"><span>${a}</span><span>${z}</span></div>`;
+  }
+  h += `<div class="note">Gris : valeur absente</div>`;
+  legende.innerHTML = h;
+}
+
 async function charger() {
-  const statut = document.getElementById("statut");
   try {
     const rep = await fetch(CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
     if (!rep.ok) throw new Error("HTTP " + rep.status);
-    const points = lireCSV(await rep.text());
-    afficher(points);
-    statut.textContent = points.length + " mesures · mise à jour à " + new Date().toLocaleTimeString("fr-FR");
+    points = lireCSV(await rep.text());
+    parId = {};
+    points.forEach(p => { parId[String(p.id)] = p; });
+    afficher();
+    statut.textContent = points.length
+      ? points.length + " mesures · mise à jour à " + new Date().toLocaleTimeString("fr-FR")
+      : "Aucune mesure pour l'instant";
+    if (premierChargement && points.length) {
+      const b = new maplibregl.LngLatBounds();
+      points.forEach(p => b.extend([p.lon, p.lat]));
+      map.fitBounds(b, { padding: 70, maxZoom: 12, duration: 0 });
+      premierChargement = false;
+    }
   } catch (e) {
     statut.textContent = "Impossible de lire les données (" + e.message + "). Nouvelle tentative bientôt.";
   }
 }
 
-// Étiquettes masquées quand on dézoome
-function majEtiquettes() {
-  document.getElementById("carte").classList.toggle("masquer-etiquettes", carte.getZoom() < ZOOM_MIN_ETIQUETTES);
+// Boutons : variable affichée et mode 2D / 3D
+const zoneVar = document.getElementById("variables");
+Object.keys(VARIABLES).forEach(cle => {
+  const b = document.createElement("button");
+  b.textContent = VARIABLES[cle].nom;
+  b.className = cle === variable ? "actif" : "";
+  b.onclick = () => {
+    variable = cle;
+    zoneVar.querySelectorAll("button").forEach(x => x.classList.toggle("actif", x === b));
+    if (map.getSource("mesures")) afficher(); else majLegende();
+  };
+  zoneVar.appendChild(b);
+});
+function definirMode(trois) {
+  mode3d = trois;
+  document.getElementById("b2d").classList.toggle("actif", !trois);
+  document.getElementById("b3d").classList.toggle("actif", trois);
+  if (!map.getLayer("cercles")) return;
+  map.setLayoutProperty("cercles", "visibility", trois ? "none" : "visible");
+  map.setLayoutProperty("colonnes", "visibility", trois ? "visible" : "none");
+  if (trois) { maj3d(); map.easeTo({ pitch: 60, bearing: -20, duration: 900 }); }
+  else map.easeTo({ pitch: 0, bearing: 0, duration: 700 });
 }
-carte.on("zoomend", majEtiquettes);
-majEtiquettes();
-
-charger();
-setInterval(charger, RAFRAICHIR_SECONDES * 1000);
+document.getElementById("b2d").onclick = () => definirMode(false);
+document.getElementById("b3d").onclick = () => definirMode(true);
+majLegende();
 </script>
 </body>
 </html>
