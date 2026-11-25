@@ -19,7 +19,7 @@ Carte de suivi du CO₂ en ligne, alimentée par un capteur branché sur un PC.
 
 ## Site en ligne
 
-https://VOTRENOM.github.io/NOM-DU-DEPOT/
+https://sasha38travail-stack.github.io/S.M.A.R.E/
 
 ## Installation sur le PC
 
