@@ -173,6 +173,56 @@ button { font: inherit; }
  .maplibregl-ctrl-top-left { top:98px; left:8px; }
 }
 
+
+/* Disposition du bandeau calquée sur l’en-tête du fichier fourni */
+.dashboard { top:0; left:0; right:0; display:flex; flex-wrap:wrap; gap:6px 18px; align-items:center;
+  padding:8px 14px; border:0; border-bottom:1px solid #cfd9d6; border-radius:0;
+  background:#f6f8f7; box-shadow:none; backdrop-filter:none; }
+.dashboard-top { display:contents; }
+.dashboard-brand { order:1; margin:0; font-size:1.05rem; letter-spacing:0; }
+.dashboard-status { order:2; flex:1 1 180px; min-width:180px; max-width:none; margin:0;
+  overflow:visible; font-size:.82rem; white-space:normal; }
+.value-grid { order:3; flex:0 1 auto; justify-content:flex-start; gap:0; margin:0;
+  border:1px solid #cfd9d6; border-radius:8px; overflow:hidden; background:#fff; }
+.value-card { flex:0 1 auto; gap:4px; padding:6px 9px; border:0; border-radius:0;
+  background:transparent; color:#1c2b2a; }
+.value-card + .value-card { border-left:1px solid #cfd9d6; }
+.value-card:hover,.value-card.actif { border-color:#cfd9d6; background:#e8f1ef; }
+.value-card span { color:#1c2b2a; font-size:.75rem; }
+.value-card strong { font-size:.85rem; }
+.value-card small { font-size:.68rem; }
+.view-switch { order:4; gap:0; border:1px solid #cfd9d6; border-radius:8px; background:#fff; }
+.view-switch button { padding:6px 11px; color:#1c2b2a; font-size:.85rem; }
+.view-switch button + button { border-left:1px solid #cfd9d6; }
+.evolution-toggle { order:5; padding:6px 11px; border:1px solid #cfd9d6; border-radius:8px;
+  color:#1c2b2a; background:#fff; font-size:.85rem; font-weight:400; }
+.evolution-toggle:hover { background:#e8f1ef; }
+.maplibregl-ctrl-top-left { top:64px; left:10px; }
+.evolution-panel { top:64px; right:12px; }
+@media(max-width:760px) {
+ .dashboard { top:0; left:0; right:0; gap:6px 10px; padding:8px 10px; }
+ .dashboard-brand { font-size:1rem; }
+ .dashboard-status { flex:1 1 180px; min-width:180px; display:block; }
+ .value-grid { flex:1 1 auto; }
+ .value-card { padding:6px 7px; }
+ .value-card span { font-size:.68rem; }
+ .value-card strong { font-size:.8rem; }
+ .evolution-panel { top:112px; right:8px; }
+ .maplibregl-ctrl-top-left { top:112px; left:8px; }
+}
+@media(max-width:430px) {
+ .dashboard { gap:6px; padding:7px 8px; }
+ .dashboard-status { flex-basis:100%; min-width:0; }
+ .value-grid { order:3; flex-basis:100%; justify-content:space-around; }
+ .value-card { flex:1 1 25%; flex-wrap:wrap; justify-content:center; column-gap:3px; padding:5px 2px; }
+ .value-card span { flex-basis:100%; text-align:center; font-size:.62rem; }
+ .value-card strong { font-size:.82rem; }
+ .value-card small { font-size:.6rem; }
+ .view-switch { order:4; }
+ .evolution-toggle { order:5; }
+ .evolution-panel { top:138px; }
+ .maplibregl-ctrl-top-left { top:138px; }
+}
 </style>
 </head>
 <body>
