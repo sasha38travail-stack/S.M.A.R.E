@@ -7,6 +7,7 @@ on:
   push:
     paths:
       - "SMARE.py"
+      - ".github/workflows/exe.yml"
 
 jobs:
   build:
