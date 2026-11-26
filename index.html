@@ -80,6 +80,10 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; }
 }
+.presentation-link { position: fixed; right: 14px; bottom: 52px; z-index: 6; display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; color: #18384a; border: 1px solid rgba(20,43,59,.12); border-radius: 999px; background: rgba(255,255,255,.96); box-shadow: 0 5px 18px rgba(20,43,59,.14); font-size: .76rem; font-weight: 760; text-decoration: none; }
+.presentation-link:hover { background: #d6f56a; }
+.presentation-link:focus-visible { outline: 3px solid #16877f; outline-offset: 3px; }
+@media (max-width: 430px) { .presentation-link { right: 9px; bottom: 48px; padding: 8px 10px; font-size: .72rem; } }
 </style>
 </head>
 <body>
@@ -363,5 +367,6 @@ document.getElementById("b2d").onclick = () => definirMode(false);
 document.getElementById("b3d").onclick = () => definirMode(true);
 majLegende();
 </script>
+<a class="presentation-link" href="presentation.html" target="_blank" rel="noopener">Présentation complète <span aria-hidden="true">↗</span></a>
 </body>
 </html>
