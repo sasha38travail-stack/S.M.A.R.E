@@ -73,7 +73,7 @@ a { color: inherit; } button { font: inherit; }
 .control-group button.actif { color: #fff; background: var(--navy-2); box-shadow: 0 2px 7px rgba(20,43,59,.18); }
 .control-group button:focus-visible,a:focus-visible { outline: 3px solid #5ab8ad; outline-offset: 3px; }
 .map-wrap { position: relative; min-height: 560px; background: #dce6e9; }
-#carte { position: absolute; inset: 0; }
+#carte-canvas { position: absolute; inset: 0; }
 .legende { position: absolute; z-index: 2; left: 18px; bottom: 28px; max-width: 230px; padding: 13px 15px; color: var(--ink); border: 1px solid rgba(20,43,59,.1); border-radius: 13px; background: rgba(255,255,255,.96); box-shadow: 0 8px 28px rgba(20,43,59,.16); font-size: .78rem; line-height: 1.7; }
 .legende b { display: block; margin-bottom: 4px; font-size: .84rem; }
 .pastille { display: inline-block; width: 10px; height: 10px; margin-right: 7px; border: 1px solid rgba(0,0,0,.2); border-radius: 50%; vertical-align: -1px; }
@@ -192,7 +192,7 @@ a { color: inherit; } button { font: inherit; }
             <div class="control-group" role="group" aria-label="Choisir le mode de carte"><button id="b2d" class="actif" type="button" aria-pressed="true">2D</button><button id="b3d" type="button" aria-pressed="false">3D</button></div>
           </div>
         </div>
-        <div class="map-wrap"><div id="carte" aria-label="Carte des relevés environnementaux"></div><div id="legende" class="legende" aria-live="polite"></div></div>
+        <div class="map-wrap"><div id="carte-canvas" aria-label="Carte des relevés environnementaux"></div><div id="legende" class="legende" aria-live="polite"></div></div>
         <div class="map-caption"><span><strong>Actualisation automatique</strong> · toutes les 30 secondes</span><span>© contributeurs OpenStreetMap · Carte MapLibre</span></div>
       </div>
       <div class="metrics" aria-label="Grandeurs mesurées">
@@ -325,7 +325,7 @@ const legende = document.getElementById("legende");
 const statut = document.getElementById("statut");
 
 const map = new maplibregl.Map({
-  container: "carte",
+  container: "carte-canvas",
   center: [2.5, 46.6], zoom: 5, maxPitch: 75,
   style: {
     version: 8,
