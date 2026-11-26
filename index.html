@@ -56,12 +56,12 @@ button { font: inherit; }
 .maplibregl-ctrl-group { overflow: hidden; border-radius: 11px !important; box-shadow: 0 4px 16px rgba(20,43,59,.14) !important; }
 .maplibregl-ctrl-attrib { border-radius: 8px 0 0 0; }
 @media (max-width: 760px) {
-  .toolbar { top: 9px; left: 9px; right: 9px; gap: 9px 12px; padding: 11px 12px; }
-  .maplibregl-ctrl-top-left { top: 149px; left: 9px; }
+  .toolbar { top: 9px; left: 9px; right: 9px; grid-template-columns: 1fr; grid-template-areas: "brand" "status" "controls"; gap: 8px; padding: 11px 12px; }
+  .maplibregl-ctrl-top-left { top: 176px; left: 9px; }
   .controls { align-items: flex-start; flex-direction: column; gap: 8px; padding-top: 9px; }
   .variable-controls { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
   .control-label { flex: 0 0 auto; }
-  .mode-controls { position: absolute; top: 12px; right: 12px; }
+  .mode-controls { position: static; }
   .status-wrap { justify-self: start; grid-area: status; font-size: .75rem; }
   .legende { left: 9px; bottom: 24px; max-width: 195px; padding: 10px 12px; font-size: .72rem; }
 }
@@ -69,7 +69,6 @@ button { font: inherit; }
   .brand-mark { flex-basis: 34px; width: 34px; height: 34px; border-radius: 10px; }
   .brand p { font-size: .69rem; }
   .control-group button { min-height: 32px; padding: 6px 9px; font-size: .75rem; }
-  .mode-controls { top: 10px; right: 10px; }
   .status-wrap { max-width: 100%; }
 }
 @media (max-height: 500px) and (min-width: 761px) {
