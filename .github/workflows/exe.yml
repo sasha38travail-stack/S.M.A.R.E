@@ -1,0 +1,25 @@
+# A placer dans le depot GitHub sous le chemin :  .github/workflows/exe.yml
+# Il construit SMARE.exe sur les serveurs de GitHub (aucune installation sur votre PC).
+name: Construire SMARE.exe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "SMARE.py"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyserial pyinstaller
+      - run: pyinstaller --onefile --windowed --name SMARE --hidden-import serial.tools.list_ports_windows SMARE.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMARE-windows
+          path: dist/SMARE.exe
+
