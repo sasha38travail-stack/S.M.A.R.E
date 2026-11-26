@@ -1,43 +1,57 @@
-# S.M.A.R.E
+# S.M.A.R.E.
 
-Carte de suivi du CO₂ en ligne, alimentée par un capteur branché sur un PC.
+**Station Météorologique Automatisée de Recherche Environnementale**
 
-## Fonctionnement
+S.M.A.R.E. est un prototype pédagogique de station environnementale embarquée sur drone. Il associe des relevés de CO₂ et de météo à une position GPS, puis les présente sur une carte consultable en ligne.
 
-1. Un capteur de CO₂ envoie ses mesures sur un port série.
-2. Un script Python sur le PC lit ces mesures et les ajoute à `data.csv`.
-3. Le script envoie automatiquement `data.csv` sur GitHub (`git push`).
-4. La page `index.html`, publiée avec GitHub Pages, lit `data.csv` et affiche la carte.
+[**Ouvrir la carte interactive**](https://sasha38travail-stack.github.io/S.M.A.R.E/) · [Voir le workflow Windows](https://github.com/sasha38travail-stack/S.M.A.R.E/actions/workflows/exe.yml)
 
-## Fichiers
+## Ce que montre la carte
+
+- **CO₂** en ppm
+- **Température** en °C
+- **Humidité relative** en %
+- **Pression atmosphérique** en hPa
+- **Position GPS** et altitude lorsqu’elles sont disponibles
+- Affichage **2D** ou **3D**, légende par grandeur et détails au clic sur un point
+
+La carte relit data.csv toutes les 30 secondes. Elle affiche les relevés présents dans le fichier; aucune mesure n’est ajoutée automatiquement par la page.
+
+## Chaîne de mesure
+
+1. Les capteurs embarqués mesurent l’air et les conditions météo. Le GPS situe le relevé et la carte microSD conserve les données.
+2. Une liaison radio transmet les mesures au récepteur au sol.
+3. Le programme Python SMARE.py sur l’ordinateur rassemble les données dans data.csv et peut les publier dans ce dépôt.
+4. La page GitHub Pages lit le CSV et affiche les points sur la carte.
+
+## Fichiers du dépôt
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Page web qui affiche la carte |
-| `data.csv` | Mesures de CO₂ (mises à jour par le script) |
-| `README.md` | Cette présentation |
+| index.html | Site du projet et carte interactive |
+| data.csv | Mesures publiées, avec position, altitude et valeurs météo |
+| SMARE.py | Application PC pour réception, enregistrement et synchronisation |
+| .github/workflows/exe.yml | Compilation de SMARE.exe sur GitHub Actions |
 
-## Site en ligne
+Les programmes Arduino et les fichiers de conception sont conservés dans leurs dossiers de projet respectifs.
 
-https://sasha38travail-stack.github.io/S.M.A.R.E/
+## Télécharger l’application Windows
 
-## Installation sur le PC
+Ouvrir [les exécutions du workflow Construire SMARE.exe](https://github.com/sasha38travail-stack/S.M.A.R.E/actions/workflows/exe.yml), choisir une exécution réussie, puis télécharger l’artefact SMARE-windows.
 
-1. Installer [Git](https://git-scm.com) et [Python](https://www.python.org) (cocher « Add Python to PATH »).
-2. Cloner le dépôt :
-   ```
-   git clone https://github.com/VOTRENOM/NOM-DU-DEPOT.git
-   ```
-3. Installer la bibliothèque série :
-   ```
-   pip install pyserial
-   ```
-4. Lancer le script de lecture du capteur (à venir).
+## Format des données
 
-## Format de `data.csv`
+Le CSV utilise les colonnes suivantes :
 
-```
-date,co2
-```
+**id,CO2_ppm,latitude,longitude,altitude,temperature,humidite,pression**
 
-Une ligne par mesure : la date et l'heure, puis la valeur de CO₂ en ppm.
+Les valeurs de température, d’humidité ou de pression peuvent être absentes si le capteur ne les fournit pas. La page conserve alors le point et affiche les données disponibles.
+
+## Technologies
+
+- Python et Tkinter pour le programme PC
+- Arduino pour l’acquisition et la transmission embarquées
+- GitHub Actions pour générer l’exécutable Windows
+- GitHub Pages, MapLibre GL JS et les tuiles OpenStreetMap pour la carte
+
+Les mesures dépendent des capteurs, de leur calibration et des conditions de collecte. Elles sont destinées à l’observation du projet et doivent être interprétées avec ces limites.
