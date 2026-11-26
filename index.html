@@ -143,6 +143,36 @@ button { font: inherit; }
  .maplibregl-ctrl-top-left { top:198px; left:8px; }
  .legende { max-width:148px; padding:8px 9px; font-size:.68rem; }
 }
+
+/* Bandeau compact inspiré du fichier fourni */
+.dashboard { display:flex; align-items:center; gap:10px; padding:6px 10px; border-radius:10px; }
+.dashboard-top { display:contents; }
+.dashboard-brand { flex:0 0 auto; font-size:.76rem; }
+.view-switch { flex:0 0 auto; }
+.view-switch button,.evolution-toggle { padding:5px 9px; font-size:.74rem; }
+.dashboard-status { flex:0 1 155px; max-width:155px; font-size:.66rem; }
+.value-grid { display:flex; flex:1 1 auto; align-items:center; justify-content:space-between; gap:2px; min-width:0; margin:0; }
+.value-card { display:flex; flex:1 1 0; align-items:baseline; justify-content:center; gap:4px; min-width:0; padding:4px 5px; border-color:transparent; background:transparent; white-space:nowrap; }
+.value-card:hover,.value-card.actif { border-color:transparent; background:#f0f8f6; }
+.value-card span { font-size:.64rem; }
+.value-card strong { font-size:.92rem; line-height:1; }
+.value-card small { font-size:.62rem; }
+.evolution-panel { top:66px; left:auto; right:16px; width:min(500px,calc(100vw - 32px)); }
+.maplibregl-ctrl-top-left { top:68px; left:12px; }
+@media(max-width:760px) {
+ .dashboard { display:flex; flex-wrap:wrap; gap:5px 8px; top:8px; left:8px; right:8px; padding:6px 7px; }
+ .dashboard-top { display:flex; flex:1 1 100%; align-items:center; gap:7px; }
+ .dashboard-brand { margin-right:auto; }
+ .dashboard-status { display:none; }
+ .value-grid { flex:1 1 100%; justify-content:space-between; gap:1px; }
+ .value-card { flex:1 1 25%; flex-wrap:wrap; column-gap:3px; padding:3px 2px; }
+ .value-card span { flex-basis:100%; text-align:center; font-size:.58rem; }
+ .value-card strong { font-size:.9rem; }
+ .value-card small { font-size:.58rem; }
+ .evolution-panel { top:95px; left:auto; right:8px; width:min(430px,calc(100vw - 16px)); }
+ .maplibregl-ctrl-top-left { top:98px; left:8px; }
+}
+
 </style>
 </head>
 <body>
